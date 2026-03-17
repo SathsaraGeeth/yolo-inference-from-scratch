@@ -1,4 +1,4 @@
 vids/
 imgs/
-yolov5nu.pt
 inference_cp.ipynb
+*.pt
