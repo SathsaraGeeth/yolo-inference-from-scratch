@@ -2,3 +2,4 @@ vids/
 imgs/
 inference_cp.ipynb
 *.pt
+*.py
