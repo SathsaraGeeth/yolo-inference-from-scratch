@@ -1,0 +1,8 @@
+vids/
+imgs/
+lib/src/
+lib/include/
+lib/MAKEFILE
+model/
+__pycache__/
+*.pt
