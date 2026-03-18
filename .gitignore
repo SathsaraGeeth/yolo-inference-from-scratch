@@ -1,8 +1,0 @@
-vids/
-imgs/
-lib/
-models/
-__pycache__/
-inference_cp.ipynb
-*.pt
-*.py
