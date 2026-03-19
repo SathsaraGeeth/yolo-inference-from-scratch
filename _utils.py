@@ -28,6 +28,7 @@ import numpy as np
 import matplotlib.patches as patches
 import torch
 from torchvision.ops import nms
+import cv2
 
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -461,55 +462,103 @@ def save_predictions(model, loader, folder, epoch, device, filename, num_images=
     model.train()
 
 
-def plot_image(image, boxes, labels=COCO):
-    """Plots predicted bounding boxes on the image"""
-    cmap = plt.get_cmap("tab20b")
+# def plot_image(image, boxes, labels=COCO):
+#     """Plots predicted bounding boxes on the image"""
+#     cmap = plt.get_cmap("tab20b")
+#     class_labels = labels
+#     colors = [cmap(i) for i in np.linspace(0, 1, len(class_labels))]
+#     im = np.array(image)
+
+#     # Create figure and axes
+#     fig, ax = plt.subplots(1)
+#     # Display the image
+#     ax.imshow(im)
+
+#     # box[0] is x midpoint, box[2] is width
+#     # box[1] is y midpoint, box[3] is height
+
+#     # Create a Rectangle patch
+#     for box in boxes:
+#         assert len(box) == 6, "box should contain class pred, confidence, x, y, width, height"
+#         class_pred = box[0]
+#         bbox = box[2:]
+
+#         # FOR MY_NMS attempts, also rect = patches.Rectangle box[2] becomes box[2] - box[0] and box[3] - box[1]
+#         upper_left_x = max(bbox[0], 0)
+#         upper_left_x = min(upper_left_x, im.shape[1])
+#         lower_left_y = max(bbox[1], 0)
+#         lower_left_y = min(lower_left_y, im.shape[0])
+
+#         """upper_left_x = max(box[0] - box[2] / 2, 0)
+#         upper_left_x = min(upper_left_x, im.shape[1])
+#         lower_left_y = max(box[1] - box[3] / 2, 0)
+#         lower_left_y = min(lower_left_y, im.shape[0])"""
+
+#         rect = patches.Rectangle(
+#             (upper_left_x, lower_left_y),
+#             bbox[2] - bbox[0],
+#             bbox[3] - bbox[1],
+#             linewidth=2,
+#             edgecolor=colors[int(class_pred)],
+#             facecolor="none",
+#         )
+#         # Add the patch to the Axes
+#         ax.add_patch(rect)
+#         plt.text(
+#             upper_left_x,
+#             lower_left_y,
+#             s=f"{class_labels[int(class_pred)]}: {box[1]:.2f}",
+#             color="white",
+#             verticalalignment="top",
+#             bbox={"color": colors[int(class_pred)], "pad": 0},
+#         )
+#     plt.show()
+
+from PIL import Image, ImageDraw, ImageFont
+from IPython.display import display
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+def plot_image(image, boxes, labels):
     class_labels = labels
-    colors = [cmap(i) for i in np.linspace(0, 1, len(class_labels))]
     im = np.array(image)
-
-    # Create figure and axes
-    fig, ax = plt.subplots(1)
-    # Display the image
-    ax.imshow(im)
-
-    # box[0] is x midpoint, box[2] is width
-    # box[1] is y midpoint, box[3] is height
-
-    # Create a Rectangle patch
+    if im.dtype != np.uint8:
+        im = (im * 255).astype(np.uint8)
+    if im.ndim == 3 and im.shape[0] == 3:
+        im = np.transpose(im, (1, 2, 0))
+    pil_img = Image.fromarray(im).convert("RGB")
+    draw = ImageDraw.Draw(pil_img)
+    font = ImageFont.load_default()
+    cmap = plt.get_cmap("tab20b")
+    colors = [
+        tuple(int(c * 255) for c in cmap(i)[:3])
+        for i in np.linspace(0, 1, len(class_labels))
+    ]
     for box in boxes:
-        assert len(box) == 6, "box should contain class pred, confidence, x, y, width, height"
-        class_pred = box[0]
+        assert len(box) == 6, "box should contain class, conf, x1, y1, x2, y2"
+        class_pred = int(box[0])
         bbox = box[2:]
-
-        # FOR MY_NMS attempts, also rect = patches.Rectangle box[2] becomes box[2] - box[0] and box[3] - box[1]
-        upper_left_x = max(bbox[0], 0)
-        upper_left_x = min(upper_left_x, im.shape[1])
-        lower_left_y = max(bbox[1], 0)
-        lower_left_y = min(lower_left_y, im.shape[0])
-
-        """upper_left_x = max(box[0] - box[2] / 2, 0)
-        upper_left_x = min(upper_left_x, im.shape[1])
-        lower_left_y = max(box[1] - box[3] / 2, 0)
-        lower_left_y = min(lower_left_y, im.shape[0])"""
-
-        rect = patches.Rectangle(
-            (upper_left_x, lower_left_y),
-            bbox[2] - bbox[0],
-            bbox[3] - bbox[1],
-            linewidth=2,
-            edgecolor=colors[int(class_pred)],
-            facecolor="none",
+        x1 = int(max(min(bbox[0], im.shape[1]), 0))
+        y1 = int(max(min(bbox[1], im.shape[0]), 0))
+        x2 = int(max(min(bbox[2], im.shape[1]), 0))
+        y2 = int(max(min(bbox[3], im.shape[0]), 0))
+        color = colors[class_pred]
+        draw.rectangle([x1, y1, x2, y2], outline=color, width=2)
+        class_name = class_labels[class_pred]
+        confidence = box[1]
+        label = f"{class_name}: {confidence:.2f}"
+        text_bbox = draw.textbbox((x1, y1), label, font=font)
+        text_w = text_bbox[2] - text_bbox[0]
+        text_h = text_bbox[3] - text_bbox[1]
+        draw.rectangle(
+            [x1, y1 - text_h, x1 + text_w, y1],
+            fill=color
         )
-        # Add the patch to the Axes
-        ax.add_patch(rect)
-        plt.text(
-            upper_left_x,
-            lower_left_y,
-            s=f"{class_labels[int(class_pred)]}: {box[1]:.2f}",
-            color="white",
-            verticalalignment="top",
-            bbox={"color": colors[int(class_pred)], "pad": 0},
+        draw.text(
+            (x1, y1 - text_h),
+            label,
+            fill=(255, 255, 255),
+            font=font
         )
-    plt.show()
-    plt.close()
+    display(pil_img)
