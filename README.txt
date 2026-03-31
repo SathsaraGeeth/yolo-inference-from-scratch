@@ -16,3 +16,7 @@ inference_testing.ipynb – Runs the model using the extracted canonical format,
 
 3. Inference  
 inference_python.ipynb – Implements the required PyTorch functionalities in C (ongoing).
+
+
+lib/
+libinf.so - shared library
